@@ -35,7 +35,7 @@ act pull_request
 This file should contain any environment variables needed to be passed into the `development.yml` action. The repository and branch can be changed as needed to conduct testing. Be aware that the S3 uploading will occur if the AWS secrets are provided - this could be detrimental to live sites, use with care!
 
 ```
-GITHUB_REPOSITORY=searchspring-implementations/snap.searchspring.io
+GITHUB_REPOSITORY=snap-implementations/snap.searchspring.io
 GITHUB_REPOSITORY_BRANCH=testing
 ```
 

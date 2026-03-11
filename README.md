@@ -45,11 +45,11 @@ jobs:
 ## Inputs
 
 ### repository
-The `repository` input parameter is **required**. This is the repository that will be cloned. For example, if your repository is `https://github.com/searchspring-implementations/demo.shopify`, you would specify: 
+The `repository` input parameter is **required**. This is the repository that will be cloned. For example, if your repository is `https://github.com/snap-implementations/demo.shopify`, you would specify: 
 
 ```yaml
 with:
-    repository: searchspring-implementations/demo.shopify
+    repository: snap-implementations/demo.shopify
 ```
 
 However if the action will be invoked from the same repository as the implementation, `${{ env.GITHUB_REPOSITORY }}` can be used. 
