@@ -25,7 +25,7 @@ const { REVERT_BRANCH_PREFIX } = constants;
         tags.sort(cmp);
         
 
-        if (commitMessage.includes(`from searchspring-implementations/${REVERT_BRANCH_PREFIX}`)) {
+        if (commitMessage.includes(`from snap-implementations/${REVERT_BRANCH_PREFIX}`)) {
             const version = commitMessage.split(REVERT_BRANCH_PREFIX).pop().split('\n').shift();
             if(tags.includes(version)) {
                 console.log(version);
