@@ -1,6 +1,6 @@
 # Snap Github Action
 
-This action publishes a Searchspring [Snap](https://github.com/searchspring/snap) implementation bundle to AWS S3.
+This action publishes a [Snap](https://github.com/searchspring/snap) implementation bundle to AWS S3. This is only applicable if the repository is hosted within the [snap-implementations](https://github.com/snap-implementations) Github organization. Otherwise, the action will skip deployment to S3 and only run build and run tests.
 
 # Usage
 
@@ -55,7 +55,7 @@ with:
 However if the action will be invoked from the same repository as the implementation, `${{ env.GITHUB_REPOSITORY }}` can be used. 
 
 ### secretKey
-The `secretKey` input parameter is only required if the `searchspring.siteId` property of the project's package.json file is a string. This is used to authenticate the project's siteId (specified in the package.json `searchspring.siteId`) with the Searchspring account. The `secretKey` value can be found in the [Searchspring Management Console](https://manage.searchspring.net/)
+The `secretKey` input parameter is only required if the `searchspring.siteId` (or `athos.siteId`) property of the project's package.json file is a string. This is used to authenticate the project's siteId (specified in the package.json `searchspring.siteId` or `athos.siteId`) with the Searchspring or Athos Commerce account. The `secretKey` value can be found in the [Searchspring Management Console](https://manage.searchspring.net/) or [Athos Commerce Console](https://console.athoscommerce.net/)
 
 If your project was created via [snapfu](https://github.com/searchspring/snapfu), you may have already specified a secret key and the repository will contain the secret `WEBSITE_SECRET_KEY` available to be used as the `secretKey` in your workflow.
 
@@ -65,23 +65,23 @@ with:
 ```
 
 ### aws-access-key-id
-The `aws-access-key-id` input parameter is only required if the action is being used with repositories in Searchspring's organization.
+The `aws-access-key-id` input parameter is only required if the action is being used with repositories in the [snap-implementations](https://github.com/snap-implementations) Github organization.
 
 ### aws-secret-access-key
-The `aws-secret-access-key` input parameter is only required if the action is being used with repositories in Searchspring's organization.
+The `aws-secret-access-key` input parameter is only required if the action is being used with repositories in the [snap-implementations](https://github.com/snap-implementations) Github organization.
 
 ### aws-cloudfront-distribution-id
-The `aws-cloudfront-distribution-id` input parameter is only required if the action is being used with repositories in Searchspring's organization.
+The `aws-cloudfront-distribution-id` input parameter is only required if the action is being used with repositories in the [snap-implementations](https://github.com/snap-implementations) Github organization.
 
 ### aws-s3-bucket-name
-The `aws-s3-bucket-name` input parameter is only required if the action is being used with repositories in Searchspring's organization.
+The `aws-s3-bucket-name` input parameter is only required if the action is being used with repositories in the [snap-implementations](https://github.com/snap-implementations) Github organization.
 
 ---
 
 ### The following parameters are **optional**
 
 ### aws-region
-The `aws-s3-bucket-name` input parameter is optional and is not used unless the action is being used with repositories in Searchspring's organization. The default region if not specified is `us-east-2`
+The `aws-s3-bucket-name` input parameter is optional and is not used unless the action is being used with repositories in the [snap-implementations](https://github.com/snap-implementations) Github organization. The default region if not specified is `us-east-2`
 
 ### NODE_AUTH_TOKEN
 The `NODE_AUTH_TOKEN` input parameter is optional. It allows for installation of private packages that require a token to authenticate when `npm install` is invoked. 
@@ -109,7 +109,7 @@ The `skipPublish` input parameter is optional. If set to `true`, the action will
 The `skipInvalidation` input parameter is optional. If set to `true`, the action will invalidate the CDN.
 
 ### secrets
-The `secrets` input parameter is only required if the `searchspring.siteId` property of the project's package.json file is an object.
+The `secrets` input parameter is only required if the `searchspring.siteId` (or `athos.siteId`) property of the project's package.json file is an object.
 
 For example: 
 ```json
@@ -127,7 +127,24 @@ For example:
 }
 ```
 
-When `searchspring.siteId` is an object, it allows multiple siteIds to be specified. A repository secret for each siteId must exist in the `WEBSITE_SECRET_KEY_${siteId}` format and contain the `secretKey` value found in the [Searchspring Management Console](https://manage.searchspring.net/)
+or
+
+```json
+{
+  "athos": {
+    "siteId": {
+      "at1234": {
+        "name": "example.com"
+      },
+      "at5678": {
+        "name": "example.com.au"
+      }
+    }
+  }
+}
+```
+
+When `searchspring.siteId` (or `athos.siteId`) is an object, it allows multiple siteIds to be specified. A repository secret for each siteId must exist in the `WEBSITE_SECRET_KEY_${siteId}` format and contain the `secretKey` value found in the [Searchspring Management Console](https://manage.searchspring.net/) or [Athos Commerce Console](https://console.athoscommerce.net/)
 
 For the example above `WEBSITE_SECRET_KEY_ABC123` and `WEBSITE_SECRET_KEY_DEF456` must exist. 
 
