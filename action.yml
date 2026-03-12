@@ -9,7 +9,7 @@ inputs:
     description: 'Repository branch (ref) to run action in (used for testing)'
     required: false
   secretKey:
-    description: 'Searchspring account secretKey. Can be obtained in the Searchspring Management Console. Required if package.json siteId is string format'
+    description: 'Account secretKey. Can be obtained in the Management Console. Required if package.json siteId is string format'
     required: false
   skipTests:
     description: 'Skip running e2e tests'
@@ -116,29 +116,36 @@ runs:
         echo "::set-output name=secrets::$secrets";
         echo "Using secrets: $secrets";
 
-        siteId_Type=`jq -r '.searchspring.siteId | type' < package.json`;
+        configKey=$(jq -r 'if .searchspring then "searchspring" elif .athos then "athos" else empty end' < package.json)
+        if [ -z "$configKey" ]; then
+          echo "Cannot find 'searchspring' or 'athos' configuration in package.json";
+          exit 1;
+        fi;
+        echo "Using configKey: $configKey";
+
+        siteId_Type=`jq -r --arg key "$configKey" '.[$key].siteId | type' < package.json`;
         echo "::set-output name=siteId_Type::$siteId_Type";
 
-        packageJSONVersion=`jq -r '.searchspring.version' < package.json`;
+        packageJSONVersion=`jq -r --arg key "$configKey" '.[$key].version' < package.json`;
         echo "::set-output name=packageJSONVersion::$packageJSONVersion";
 
         if [ $siteId_Type = 'string' ]; then \
           echo "siteId is a string"; \
-          siteId=`jq -r '.searchspring.siteId' < package.json`; \
+          siteId=`jq -r --arg key "$configKey" '.[$key].siteId' < package.json`; \
           echo "::set-output name=siteId::$siteId"; \
           echo "Using siteId: $siteId"; \
         elif [ $siteId_Type = 'object' ]; then \
           echo "siteId is an object"; \
-          siteIds=`jq -r '.searchspring.siteId | keys_unsorted | join(",")' < package.json`; \
+          siteIds=`jq -r --arg key "$configKey" '.[$key].siteId | keys_unsorted | join(",")' < package.json`; \
           echo "::set-output name=siteIds::$siteIds"; \
           echo "Using siteIds: $siteIds"; \
 
-          siteNames=`jq -r '[.searchspring.siteId[].name] | join(",")' < package.json`; \
+          siteNames=`jq -r --arg key "$configKey" '[.[$key].siteId[].name] | join(",")' < package.json`; \
           echo "::set-output name=siteNames::$siteNames"; \
           echo "Using siteNames: $siteNames"; \
 
           # also set siteId to the first siteId in object format
-          siteId=`jq -r '.searchspring.siteId | keys_unsorted | first' < package.json`; \
+          siteId=`jq -r --arg key "$configKey" '.[$key].siteId | keys_unsorted | first' < package.json`; \
           echo "::set-output name=siteId::$siteId"; \
           echo "Using siteId: $siteId"; \
 
