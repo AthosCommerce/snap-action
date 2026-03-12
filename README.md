@@ -1,6 +1,6 @@
 # Snap Github Action
 
-This action publishes a [Snap](https://github.com/searchspring/snap) implementation bundle to AWS S3. This is only applicable if the repository is hosted within the [snap-implementations](https://github.com/snap-implementations) Github organization. Otherwise, the action will skip deployment to S3 and only run build and run tests.
+This action publishes a [Snap](https://github.com/AthosCommerce/snap) implementation bundle to AWS S3. This is only applicable if the repository is hosted within the [snap-implementations](https://github.com/snap-implementations) Github organization. Otherwise, the action will skip deployment to S3 and only run build and run tests.
 
 # Usage
 
@@ -55,7 +55,7 @@ with:
 However if the action will be invoked from the same repository as the implementation, `${{ env.GITHUB_REPOSITORY }}` can be used. 
 
 ### secretKey
-The `secretKey` input parameter is only required if the `searchspring.siteId` (or `athos.siteId`) property of the project's package.json file is a string. This is used to authenticate the project's siteId (specified in the package.json `searchspring.siteId` or `athos.siteId`) with the Searchspring or Athos Commerce account. The `secretKey` value can be found in the [Searchspring Management Console](https://manage.searchspring.net/) or [Athos Commerce Console](https://console.athoscommerce.net/)
+The `secretKey` input parameter is only required if the `athos.siteId` (or `searchspring.siteId`) property of the project's package.json file is a string. This is used to authenticate the project's siteId (specified in the package.json `athos.siteId` or `searchspring.siteId`) with the Searchspring or Athos Commerce account. The `secretKey` value can be found in the [Athos Commerce Console](https://console.athoscommerce.net/) or [Searchspring Management Console](https://manage.searchspring.net/)
 
 If your project was created via [snapfu](https://github.com/searchspring/snapfu), you may have already specified a secret key and the repository will contain the secret `WEBSITE_SECRET_KEY` available to be used as the `secretKey` in your workflow.
 
@@ -109,7 +109,7 @@ The `skipPublish` input parameter is optional. If set to `true`, the action will
 The `skipInvalidation` input parameter is optional. If set to `true`, the action will invalidate the CDN.
 
 ### secrets
-The `secrets` input parameter is only required if the `searchspring.siteId` (or `athos.siteId`) property of the project's package.json file is an object.
+The `secrets` input parameter is only required if the `athos.siteId` (or `searchspring.siteId`) property of the project's package.json file is an object.
 
 For example: 
 ```json
@@ -144,7 +144,7 @@ or
 }
 ```
 
-When `searchspring.siteId` (or `athos.siteId`) is an object, it allows multiple siteIds to be specified. A repository secret for each siteId must exist in the `WEBSITE_SECRET_KEY_${siteId}` format and contain the `secretKey` value found in the [Searchspring Management Console](https://manage.searchspring.net/) or [Athos Commerce Console](https://console.athoscommerce.net/)
+When `athos.siteId` (or `searchspring.siteId`) is an object, it allows multiple siteIds to be specified. A repository secret for each siteId must exist in the `WEBSITE_SECRET_KEY_${siteId}` format and contain the `secretKey` value found in the [Athos Commerce Console](https://console.athoscommerce.net/) or [Searchspring Management Console](https://manage.searchspring.net/)
 
 For the example above `WEBSITE_SECRET_KEY_ABC123` and `WEBSITE_SECRET_KEY_DEF456` must exist. 
 
