@@ -236,11 +236,17 @@ function writePayload(ctx) {
 	return { dir, filePath };
 }
 
-async function uploadArtifact(dir, filePath) {
-	const { DefaultArtifactClient } = require('@actions/artifact');
-	const client = new DefaultArtifactClient();
-	await client.uploadArtifact(ARTIFACT_NAME, [filePath], dir, { retentionDays: 365 });
-	console.log(`Uploaded artifact '${ARTIFACT_NAME}'.`);
+// Signals the following action.yml step to upload the payload via
+// actions/upload-artifact (the artifact runtime token is not available to this
+// composite run step, so the upload itself must be a JavaScript action).
+function signalUpload() {
+	const out = process.env.GITHUB_OUTPUT;
+	if (!out) {
+		console.log('GITHUB_OUTPUT not set; skipping do_upload signal.');
+		return;
+	}
+	fs.appendFileSync(out, 'do_upload=true\n');
+	console.log('Signalled artifact upload (do_upload=true).');
 }
 
 // ---------------------------------------------------------------------------
@@ -270,8 +276,8 @@ async function main() {
 		return;
 	}
 
-	const { dir, filePath } = writePayload(ctx);
-	await uploadArtifact(dir, filePath);
+	writePayload(ctx);
+	signalUpload();
 	await postSlack(
 		ctx,
 		`:rotating_light::unlock: *Unlocked configuration detected!*\n${ctx.pr ? ctx.pr.htmlUrl : ''}\n\n${SLACK_SUBTEAM} please review and confirm.`
