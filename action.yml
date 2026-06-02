@@ -65,7 +65,7 @@ runs:
   steps:
     - name: Checkout Repository
       id: checkout-repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
       with:
         token: ${{ github.ref_name == 'production' && inputs.GITHUB_BOT_TOKEN || github.token }}
         repository: ${{ inputs.repository }}
@@ -75,9 +75,9 @@ runs:
 
     - name: Setup Node
       id: setup-node
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v6
       with:
-        node-version: 20
+        node-version: 24
 
     - name: Extract Variables
       id: variables
@@ -175,7 +175,7 @@ runs:
     - name: Configure AWS credentials
       id: configure-aws
       if: ${{ steps.variables.outputs.awsCreds }}
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@v6.1.0
       with:
         aws-access-key-id: ${{ inputs.aws-access-key-id }}
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
@@ -206,7 +206,7 @@ runs:
 
     - name: Cache node_modules
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       env:
         cache-name: cache-node-modules
       with:
@@ -336,6 +336,29 @@ runs:
           echo 'lighthouserc.js file not found in repository, skipping lighthouse tests'; \
         fi
     
+    - name: Manage Unlocked Artifact
+      id: unlocked
+      if: github.event_name == 'pull_request'
+      shell: bash
+      working-directory: repository
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_BOT_TOKEN: ${{ inputs.GITHUB_BOT_TOKEN }}
+      run: |
+        node ../scripts/utils/logStep.js --step 'Manage Unlocked Artifact'
+        node "${{ github.action_path }}/scripts/detectUnlockedTypeUsage.js" \
+          --secrets-ci '${{ steps.variables.outputs.secrets }}'
+
+    - name: Upload Unlocked Artifact
+      id: upload-unlocked
+      if: github.event_name == 'pull_request' && steps.unlocked.outputs.do_upload == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: unlocked-production
+        path: repository/.artifacts/unlocked-production.json
+        if-no-files-found: error
+        retention-days: 365
+
     - name: Git Tag
       id: tag
       if: ${{ contains(steps.variables.outputs.packageJSONVersion, '.') && steps.variables.outputs.branch == 'production' && github.event_name == 'push' }}
@@ -376,7 +399,7 @@ runs:
     - name: PR Comment
       id: pr-comment
       if: steps.lighthouse.outputs.scores && steps.variables.outputs.isSelfHosted == 'false'
-      uses: actions/github-script@v5
+      uses: actions/github-script@v9
       with:
         github-token: ${{ inputs.GITHUB_BOT_TOKEN || github.token }}
         script: |
@@ -573,7 +596,7 @@ runs:
               patchId=$patchId \
               url='https://github.com/${{ github.repository_owner }}/${{ steps.variables.outputs.repository }}/actions/runs/${{ github.run_id }}' \
               runAttempt=${{ github.run_attempt }} \
-              failedStep='${{ steps.checkout-repo.conclusion == 'Failure' && 'checkout-repo' || steps.configure-aws.conclusion == 'Failure' && 'configure-aws' || steps.variables.conclusion == 'Failure' && 'variables' || steps.authenticate.conclusion == 'Failure' && 'authenticate' || steps.setup-node.conclusion == 'Failure' && 'setup-node' || steps.cache.conclusion == 'Failure' && 'cache' || steps.install.conclusion == 'Failure' && 'install' || steps.build.conclusion == 'Failure' && 'build' || steps.test.conclusion == 'Failure' && 'test' || steps.snapfu-recs-sync.conclusion == 'Failure' && 'snapfu-recs-sync' || steps.snapfu-badges-sync.conclusion == 'Failure' && 'snapfu-badges-sync' || steps.lighthouse.conclusion == 'Failure' && 'lighthouse' || steps.tag.conclusion == 'Failure' && 'tag' || steps.pr-comment.conclusion == 'Failure' && 'pr-comment' || steps.s3-upload.conclusion == 'Failure' && 's3-upload' || steps.lighthouse-metrics.conclusion == 'Failure' && 'lighthouse-metrics' || steps.invalidation.conclusion == 'Failure' && 'invalidation' || steps.metrics.conclusion == 'Failure' && 'metrics' || steps.start-metrics.conclusion == 'Failure' && 'start-metrics' || steps.commit-files.conclusion == 'Failure' && 'commit-files' || steps.custom-snapfu-patch.conclusion == 'Failure' && 'custom-snapfu-patch' || ''}}' \
+              failedStep='${{ steps.checkout-repo.conclusion == 'Failure' && 'checkout-repo' || steps.configure-aws.conclusion == 'Failure' && 'configure-aws' || steps.variables.conclusion == 'Failure' && 'variables' || steps.authenticate.conclusion == 'Failure' && 'authenticate' || steps.setup-node.conclusion == 'Failure' && 'setup-node' || steps.cache.conclusion == 'Failure' && 'cache' || steps.install.conclusion == 'Failure' && 'install' || steps.build.conclusion == 'Failure' && 'build' || steps.test.conclusion == 'Failure' && 'test' || steps.snapfu-recs-sync.conclusion == 'Failure' && 'snapfu-recs-sync' || steps.snapfu-badges-sync.conclusion == 'Failure' && 'snapfu-badges-sync' || steps.lighthouse.conclusion == 'Failure' && 'lighthouse' || steps.tag.conclusion == 'Failure' && 'tag' || steps.pr-comment.conclusion == 'Failure' && 'pr-comment' || steps.s3-upload.conclusion == 'Failure' && 's3-upload' || steps.lighthouse-metrics.conclusion == 'Failure' && 'lighthouse-metrics' || steps.invalidation.conclusion == 'Failure' && 'invalidation' || steps.metrics.conclusion == 'Failure' && 'metrics' || steps.start-metrics.conclusion == 'Failure' && 'start-metrics' || steps.commit-files.conclusion == 'Failure' && 'commit-files' || steps.custom-snapfu-patch.conclusion == 'Failure' && 'custom-snapfu-patch' || steps.unlocked.conclusion == 'Failure' && 'unlocked' || steps.upload-unlocked.conclusion == 'Failure' && 'upload-unlocked' || ''}}' \
             ) \
             | tee ${{ steps.variables.outputs.repository }}-conclusion-${{ github.event_name }}-${{ steps.variables.outputs.packageJSONVersion }}.json SnapAction-${{ steps.variables.outputs.repository }}-${{ github.event_name }}-$(date -u +"%Y_%m_%d_%H%M").json && \
           cat ./SnapAction*.json && \
@@ -595,7 +618,7 @@ runs:
             --startTime "" \
             --conclusion "${{ github.action_status }}" \
             --duration "$duration" \
-            --failedStep "${{ steps.checkout-repo.conclusion == 'Failure' && 'checkout-repo' || steps.configure-aws.conclusion == 'Failure' && 'configure-aws' || steps.variables.conclusion == 'Failure' && 'variables' || steps.authenticate.conclusion == 'Failure' && 'authenticate' || steps.setup-node.conclusion == 'Failure' && 'setup-node' || steps.cache.conclusion == 'Failure' && 'cache' || steps.install.conclusion == 'Failure' && 'install' || steps.build.conclusion == 'Failure' && 'build' || steps.test.conclusion == 'Failure' && 'test' || steps.snapfu-recs-sync.conclusion == 'Failure' && 'snapfu-recs-sync' || steps.snapfu-badges-sync.conclusion == 'Failure' && 'snapfu-badges-sync' || steps.lighthouse.conclusion == 'Failure' && 'lighthouse' || steps.tag.conclusion == 'Failure' && 'tag' || steps.pr-comment.conclusion == 'Failure' && 'pr-comment' || steps.s3-upload.conclusion == 'Failure' && 's3-upload' || steps.lighthouse-metrics.conclusion == 'Failure' && 'lighthouse-metrics' || steps.invalidation.conclusion == 'Failure' && 'invalidation' || steps.metrics.conclusion == 'Failure' && 'metrics' || steps.start-metrics.conclusion == 'Failure' && 'start-metrics' || steps.commit-files.conclusion == 'Failure' && 'commit-files' || steps.custom-snapfu-patch.conclusion == 'Failure' && 'custom-snapfu-patch' || ''}}" \
+            --failedStep "${{ steps.checkout-repo.conclusion == 'Failure' && 'checkout-repo' || steps.configure-aws.conclusion == 'Failure' && 'configure-aws' || steps.variables.conclusion == 'Failure' && 'variables' || steps.authenticate.conclusion == 'Failure' && 'authenticate' || steps.setup-node.conclusion == 'Failure' && 'setup-node' || steps.cache.conclusion == 'Failure' && 'cache' || steps.install.conclusion == 'Failure' && 'install' || steps.build.conclusion == 'Failure' && 'build' || steps.test.conclusion == 'Failure' && 'test' || steps.snapfu-recs-sync.conclusion == 'Failure' && 'snapfu-recs-sync' || steps.snapfu-badges-sync.conclusion == 'Failure' && 'snapfu-badges-sync' || steps.lighthouse.conclusion == 'Failure' && 'lighthouse' || steps.tag.conclusion == 'Failure' && 'tag' || steps.pr-comment.conclusion == 'Failure' && 'pr-comment' || steps.s3-upload.conclusion == 'Failure' && 's3-upload' || steps.lighthouse-metrics.conclusion == 'Failure' && 'lighthouse-metrics' || steps.invalidation.conclusion == 'Failure' && 'invalidation' || steps.metrics.conclusion == 'Failure' && 'metrics' || steps.start-metrics.conclusion == 'Failure' && 'start-metrics' || steps.commit-files.conclusion == 'Failure' && 'commit-files' || steps.custom-snapfu-patch.conclusion == 'Failure' && 'custom-snapfu-patch' || steps.unlocked.conclusion == 'Failure' && 'unlocked' || steps.upload-unlocked.conclusion == 'Failure' && 'upload-unlocked' || ''}}" \
             --commitMessage "$COMMIT_MESSAGE" \
             --url "https://github.com/${{ github.repository_owner }}/${{ steps.variables.outputs.repository }}/actions/runs/${{ github.run_id }}" \
             --secrets-ci '${{ steps.variables.outputs.secrets }}';

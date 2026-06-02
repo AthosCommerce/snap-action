@@ -73,38 +73,48 @@ const stepMap = {
         label: 'Lighthouse Tests',
         include: true,
     },
-    'tag': {
+    'unlocked': {
         order: 15,
+        label: 'Manage Unlocked Artifact',
+        include: true,
+    },
+    'upload-unlocked': {
+        order: 16,
+        label: 'Upload Unlocked Artifact',
+        include: true,
+    },
+    'tag': {
+        order: 17,
         label: 'Git Tag',
         include: false,
     },
     'pr-comment': {
-        order: 16,
+        order: 18,
         label: 'PR Comment',
         include: true,
     },
     'lighthouse-metrics': {
-        order: 17,
+        order: 19,
         label: 'Lighthouse Metrics',
         include: true,
     },
     's3-upload': {
-        order: 18,
+        order: 20,
         label: 'Copy Files to S3',
         include: true,
     },
     'invalidation': {
-        order: 19,
+        order: 21,
         label: 'Invalidate Files',
         include: true,
     },
     'commit-files': {
-        order: 20,
+        order: 22,
         label: 'Commit Files',
         include: true,
     },
     'metrics': {
-        order: 21,
+        order: 23,
         label: 'Conclusion Metrics',
         include: true,
     },
