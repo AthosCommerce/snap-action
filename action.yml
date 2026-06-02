@@ -347,8 +347,7 @@ runs:
       run: |
         node ../scripts/utils/logStep.js --step 'Manage Unlocked Artifact'
         node "${{ github.action_path }}/scripts/detectUnlockedTypeUsage.js" \
-          --secrets-ci '${{ steps.variables.outputs.secrets }}' || \
-          echo "non-blocking: unlocked artifact management failed"
+          --secrets-ci '${{ steps.variables.outputs.secrets }}'
 
     - name: Upload Unlocked Artifact
       id: upload-unlocked

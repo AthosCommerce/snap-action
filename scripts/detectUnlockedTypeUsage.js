@@ -39,7 +39,7 @@ function walk(dir) {
 function detectUnlocked() {
 	try {
 		const srcDir = path.join(process.cwd(), 'src');
-		if (!fs.existsSync(srcDir) || !fs.statSync(srcDir).isDirectory()) return 'locked';
+		if (!fs.existsSync(srcDir) || !fs.statSync(srcDir).isDirectory()) return 'unknown';
 		const files = walk(srcDir).filter((f) => f.endsWith('.ts') || f.endsWith('.tsx'));
 		const regex = new RegExp(`\\b${TYPE_NAME}\\b`);
 		for (const file of files) {
