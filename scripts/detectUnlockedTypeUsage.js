@@ -40,7 +40,7 @@ function detectUnlocked() {
 	try {
 		const srcDir = path.join(process.cwd(), 'src');
 		if (!fs.existsSync(srcDir) || !fs.statSync(srcDir).isDirectory()) return 'unknown';
-		const files = walk(srcDir).filter((f) => f.endsWith('.ts') || f.endsWith('.tsx'));
+		const files = walk(srcDir).filter((f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && path.basename(f) !== 'types.d.ts');
 		const regex = new RegExp(`\\b${TYPE_NAME}\\b`);
 		for (const file of files) {
 			if (regex.test(fs.readFileSync(file, 'utf8'))) return 'unlocked';
