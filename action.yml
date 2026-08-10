@@ -41,7 +41,7 @@ inputs:
   aws-region:
     description: 'AWS region'
     required: false
-    default: us-east-2  
+    default: us-east-2
   LHCI_GITHUB_APP_TOKEN:
     description: 'Lighthouse App Key for PR status updates'
     required: false
@@ -160,6 +160,8 @@ runs:
         repository=`git config --get remote.origin.url | grep -Eo "[^\/]+$" | sed 's/\.git$//g'`
         echo "::set-output name=repository::$repository"
         echo "Using repository: $repository"
+        organization=`git config --get remote.origin.url | grep -Eo "[^\/:]+\/[^\/]+$" | cut -d "/" -f1`
+        echo "Using organization: $organization"
         startTime=`date -u +%s`
         echo "::set-output name=startTime::$startTime"
         echo "Using startTime: $startTime"
@@ -171,6 +173,14 @@ runs:
         isSelfHosted=${{ (startsWith(github.head_ref, 'updater/patch/') || startsWith(github.ref_name, 'updater/patch/') || startsWith(github.head_ref, 'updater/revert/') || startsWith(github.ref_name, 'updater/revert/') || (github.ref_name == github.event.repository.master_branch && (contains(github.event.head_commit.message,'from snap-implementations/updater/patch/') || contains(github.event.head_commit.message,'from snap-implementations/updater/revert/')))) && 'true' || 'false' }}
         echo "::set-output name=isSelfHosted::$isSelfHosted";
         echo "Using isSelfHosted: $isSelfHosted"
+
+        if [ "$repository" == 'snap-templates-express' ] && [ "$organization" == 'snap-implementations' ]; then
+          isCDNBuild=true;
+        else
+          isCDNBuild=false;
+        fi;
+        echo "::set-output name=isCDNBuild::$isCDNBuild";
+        echo "Using isCDNBuild: $isCDNBuild"
 
     - name: Configure AWS credentials
       id: configure-aws
@@ -216,6 +226,7 @@ runs:
 
     - name: Authenticate siteId and secretKey
       id: authenticate
+      if: steps.variables.outputs.isCDNBuild == 'false'
       shell: bash
       run: |
         node scripts/utils/logStep.js --step 'Authenticate siteId and secretKey'
@@ -449,31 +460,38 @@ runs:
       working-directory: repository
       run: |
         node ../scripts/utils/logStep.js --step 'Copy Files to S3'
-        if [ ${{ inputs.skipPublish }} = true ]; then
-          echo "skipping upload of 'dist' and 'public' directories to S3 due to skipPublish flag";
-        elif [ "${{ github.event_name }}" = "pull_request" ]; then \
-          echo "skipping upload of 'dist' and 'public' directories to S3 for pull_request action triggers"; \
-          if [ -f tests/lighthouse/runs/manifest.json ]; then aws s3 sync --cache-control max-age=1800 --acl public-read tests/lighthouse/runs s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/.lighthouse/${{ steps.variables.outputs.branch }}; fi; \
-        else \
-          if [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then \
-            aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}
-            aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}
-            if [ "${{ steps.tag.outputs.tag }}" != "" ]; then
-              aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.tag.outputs.tag }}
-              aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.tag.outputs.tag }}
-            fi
-          elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
-            echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
-              do
-                echo "Copying files to S3 for siteId $siteId"
-                aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.variables.outputs.branch }}
-                aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.variables.outputs.branch }}
-                if [ "${{ steps.tag.outputs.tag }}" != "" ]; then
-                  aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.tag.outputs.tag }}
-                  aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.tag.outputs.tag }}
-                fi
-              done;
+
+        if [ '${{ steps.variables.outputs.isCDNBuild }}' == 'false' ]; then
+          if [ ${{ inputs.skipPublish }} = true ]; then
+            echo "skipping upload of 'dist' and 'public' directories to S3 due to skipPublish flag";
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then \
+            echo "skipping upload of 'dist' and 'public' directories to S3 for pull_request action triggers";
+            if [ -f tests/lighthouse/runs/manifest.json ]; then aws s3 sync --cache-control max-age=1800 --acl public-read tests/lighthouse/runs s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/.lighthouse/${{ steps.variables.outputs.branch }}; fi;
+          else \
+            if [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
+              aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}
+              aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}
+              if [ "${{ steps.tag.outputs.tag }}" != "" ]; then
+                aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.tag.outputs.tag }}
+                aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.tag.outputs.tag }}
+              fi
+            elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
+              echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
+                do
+                  echo "Copying files to S3 for siteId $siteId"
+                  aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.variables.outputs.branch }}
+                  aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.variables.outputs.branch }}
+                  if [ "${{ steps.tag.outputs.tag }}" != "" ]; then
+                    aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.tag.outputs.tag }}
+                    aws s3 sync --cache-control max-age=1800 --acl public-read public s3://${{ inputs.aws-s3-bucket-name }}/$siteId/${{ steps.tag.outputs.tag }}
+                  fi
+                done;
+            fi;
           fi;
+        else
+          # uploads Snap templates CDN build (snap-templates-express repository)
+          # https://snapui.athoscommerce.io/express/bundle.js
+          aws s3 sync --cache-control max-age=1800 --acl public-read dist s3://${{ inputs.aws-s3-bucket-name }}/express/${{ steps.variables.outputs.branch }}
         fi;
 
     - name: Invalidate Files
@@ -492,42 +510,46 @@ runs:
         elif [ "${{ github.event_name }}" = "pull_request" ]; then
           echo "skipping invalidation for pull_request action triggers";
         else
-          if [ ${{ steps.variables.outputs.branch }} = production ]; then
-            if [ "${{ steps.variables.outputs.isSelfHosted }}" = "true" ]; then
-              echo "Only invalidating bundle.js due to self-hosted"
-              if [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
-                aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/bundle.js"
-              elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
-                echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
-                  do
-                    echo "Invalidating files for siteId $siteId"
-                    aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/$siteId/bundle.js"
-                  done
+            if [ '${{ steps.variables.outputs.isCDNBuild }}' == 'false' ]; then
+              if [ ${{ steps.variables.outputs.branch }} = production ]; then
+                if [ "${{ steps.variables.outputs.isSelfHosted }}" = "true" ]; then
+                  echo "Only invalidating bundle.js due to self-hosted"
+                  if [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
+                    aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/bundle.js"
+                  elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
+                    echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
+                      do
+                        echo "Invalidating files for siteId $siteId"
+                        aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/$siteId/bundle.js"
+                      done
+                  fi
+                elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
+                  aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/*"
+                elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
+                  echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
+                    do
+                      echo "Invalidating files for siteId $siteId"
+                      aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/$siteId/*"
+                      sleep 3
+                    done
+                fi
+              else
+                if [ "${{ steps.variables.outputs.isSelfHosted }}" = "true" ]; then
+                  echo "Skipping invalidation for branch due to self-hosted"
+                elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
+                  aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}/*"
+                elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
+                  echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
+                    do
+                      echo "Invalidating files for siteId $siteId on branch ${{ steps.variables.outputs.branch }}"
+                      aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/$siteId/${{ steps.variables.outputs.branch }}/*"
+                      sleep 3
+                    done
+                fi
               fi
-            elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
-              aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/*"
-            elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
-              echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
-                do
-                  echo "Invalidating files for siteId $siteId"
-                  aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/$siteId/*"
-                  sleep 3
-                done
-            fi
-          else
-            if [ "${{ steps.variables.outputs.isSelfHosted }}" = "true" ]; then
-              echo "Skipping invalidation for branch due to self-hosted"
-            elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
-              aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}/*"
-            elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
-              echo "${{ steps.variables.outputs.siteIds }}" | tr , '\n' | while read siteId
-                do
-                  echo "Invalidating files for siteId $siteId on branch ${{ steps.variables.outputs.branch }}"
-                  aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/$siteId/${{ steps.variables.outputs.branch }}/*"
-                  sleep 3
-                done
-            fi
-          fi
+            else
+              aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/express/${{ steps.variables.outputs.branch }}/*"
+            fi;
         fi;
     
     - name: Commit Files
