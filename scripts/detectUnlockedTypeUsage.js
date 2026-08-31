@@ -4,6 +4,11 @@ const https = require('./utils/https');
 const getCliArgs = require('./utils/getCliArgs');
 
 const TYPE_NAME = 'SnapTemplatesConfigUnlocked';
+// snap 1.12.0+ (https://github.com/AthosCommerce/snap/commit/cc4e3d016b33074fe8242a7b7ea3c625e2c8708b)
+// added validateTemplatesConfig/validateTemplatesConfigUnlocked helpers as the
+// recommended way to type a config, replacing the `: SnapTemplatesConfigUnlocked`
+// annotation. Detect either so older and newer templates repos both work.
+const VALIDATE_FUNCTION_NAME = 'validateTemplatesConfigUnlocked';
 const ARTIFACT_NAME = 'unlocked-production';
 const SLACK_SUBTEAM = '<!subteam^S010K9M9XJ6>';
 const FREEZE_POLICE_GIFS = [
@@ -41,7 +46,9 @@ function detectUnlocked() {
 		const srcDir = path.join(process.cwd(), 'src');
 		if (!fs.existsSync(srcDir) || !fs.statSync(srcDir).isDirectory()) return 'unknown';
 		const files = walk(srcDir).filter((f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && path.basename(f) !== 'types.d.ts');
-		const regex = new RegExp(`\\b${TYPE_NAME}\\b`);
+		// Matches either the old `: SnapTemplatesConfigUnlocked` type annotation or a
+		// call/import of the new validateTemplatesConfigUnlocked() helper.
+		const regex = new RegExp(`\\b(${TYPE_NAME}|${VALIDATE_FUNCTION_NAME})\\b`);
 		for (const file of files) {
 			if (regex.test(fs.readFileSync(file, 'utf8'))) return 'unlocked';
 		}

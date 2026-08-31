@@ -349,7 +349,7 @@ runs:
     
     - name: Manage Unlocked Artifact
       id: unlocked
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'production'
       shell: bash
       working-directory: repository
       env:
@@ -362,7 +362,7 @@ runs:
 
     - name: Upload Unlocked Artifact
       id: upload-unlocked
-      if: github.event_name == 'pull_request' && steps.unlocked.outputs.do_upload == 'true'
+      if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'production' && steps.unlocked.outputs.do_upload == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: unlocked-production
