@@ -170,9 +170,11 @@ runs:
         echo "::set-output name=awsCreds::$awsCreds";
         echo "Using awsCreds: $awsCreds"
 
-        isSelfHosted=${{ (startsWith(github.head_ref, 'updater/patch/') || startsWith(github.ref_name, 'updater/patch/') || startsWith(github.head_ref, 'updater/revert/') || startsWith(github.ref_name, 'updater/revert/') || (github.ref_name == github.event.repository.master_branch && (contains(github.event.head_commit.message,'from snap-implementations/updater/patch/') || contains(github.event.head_commit.message,'from snap-implementations/updater/revert/')))) && 'true' || 'false' }}
-        echo "::set-output name=isSelfHosted::$isSelfHosted";
-        echo "Using isSelfHosted: $isSelfHosted"
+        # updater runs (updater/patch/* and updater/revert/* branches and their merges) use the 'snapp-updater' runner
+        # this is a GitHub-hosted runner (not self-hosted) with its own label so that updater jobs have a separate queue
+        isUpdaterRun=${{ (startsWith(github.head_ref, 'updater/patch/') || startsWith(github.ref_name, 'updater/patch/') || startsWith(github.head_ref, 'updater/revert/') || startsWith(github.ref_name, 'updater/revert/') || (github.ref_name == github.event.repository.master_branch && (contains(github.event.head_commit.message,'from snap-implementations/updater/patch/') || contains(github.event.head_commit.message,'from snap-implementations/updater/revert/')))) && 'true' || 'false' }}
+        echo "::set-output name=isUpdaterRun::$isUpdaterRun";
+        echo "Using isUpdaterRun: $isUpdaterRun"
 
         if [ "$repository" == 'snap-templates-express' ] && [ "$organization" == 'snap-implementations' ]; then
           isCDNBuild=true;
@@ -193,12 +195,12 @@ runs:
 
     - name: Updater Start Metrics
       id: start-metrics
-      if: ${{ steps.variables.outputs.isSelfHosted == 'true' }}
+      if: ${{ steps.variables.outputs.isUpdaterRun == 'true' }}
       shell: bash
       env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
       run: |
-        # Start time metric used in snapp-updater action status, Should only run on self-hosted
+        # Start time metric used in snapp-updater action status, Should only run on updater runs
         node scripts/metrics/updater.js \
           --runAttempt "${{ github.run_attempt }}" \
           --actor "${{ github.actor }}" \
@@ -242,7 +244,7 @@ runs:
     - name: Custom Snapfu Patch
       id: custom-snapfu-patch
       shell: bash
-      if: steps.variables.outputs.isSelfHosted == 'true' && steps.variables.outputs.customPatchName != '' && github.event_name == 'push' && steps.variables.outputs.branch != 'production'
+      if: steps.variables.outputs.isUpdaterRun == 'true' && steps.variables.outputs.customPatchName != '' && github.event_name == 'push' && steps.variables.outputs.branch != 'production'
       working-directory: repository
       run: |
         node ../scripts/utils/logStep.js --step 'Custom Snapfu Patch'
@@ -261,7 +263,7 @@ runs:
         NODE_AUTH_TOKEN: ${{ inputs.NODE_AUTH_TOKEN }}
       run: |
         node ../scripts/utils/logStep.js --step 'Install Packages'
-        if [ '${{ steps.variables.outputs.isSelfHosted }}' == 'true' ]; then
+        if [ '${{ steps.variables.outputs.isUpdaterRun }}' == 'true' ]; then
           # npm install instead of ci for updater runs - ci requires package.json and package-lock.json to be in sync
           npm install --prefer-offline
         else
@@ -308,7 +310,7 @@ runs:
     - name: Snapfu Recs Sync
       id: snapfu-recs-sync
       shell: bash
-      if: steps.variables.outputs.branch == 'production' && steps.variables.outputs.isSelfHosted == 'false'
+      if: steps.variables.outputs.branch == 'production' && steps.variables.outputs.isUpdaterRun == 'false'
       working-directory: repository
       run: |
         node ../scripts/utils/logStep.js --step 'Snapfu Recs Sync'
@@ -320,7 +322,7 @@ runs:
     - name: Snapfu Badges Sync
       id: snapfu-badges-sync
       shell: bash
-      if: steps.variables.outputs.branch == 'production' && steps.variables.outputs.isSelfHosted == 'false'
+      if: steps.variables.outputs.branch == 'production' && steps.variables.outputs.isUpdaterRun == 'false'
       working-directory: repository
       run: |
         node ../scripts/utils/logStep.js --step 'Snapfu Badges Sync'
@@ -409,7 +411,7 @@ runs:
 
     - name: PR Comment
       id: pr-comment
-      if: steps.lighthouse.outputs.scores && steps.variables.outputs.isSelfHosted == 'false'
+      if: steps.lighthouse.outputs.scores && steps.variables.outputs.isUpdaterRun == 'false'
       uses: actions/github-script@v9
       with:
         github-token: ${{ inputs.GITHUB_BOT_TOKEN || github.token }}
@@ -512,8 +514,8 @@ runs:
         else
             if [ '${{ steps.variables.outputs.isCDNBuild }}' == 'false' ]; then
               if [ ${{ steps.variables.outputs.branch }} = production ]; then
-                if [ "${{ steps.variables.outputs.isSelfHosted }}" = "true" ]; then
-                  echo "Only invalidating bundle.js due to self-hosted"
+                if [ "${{ steps.variables.outputs.isUpdaterRun }}" = "true" ]; then
+                  echo "Only invalidating bundle.js due to updater run"
                   if [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
                     aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/bundle.js"
                   elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
@@ -534,8 +536,8 @@ runs:
                     done
                 fi
               else
-                if [ "${{ steps.variables.outputs.isSelfHosted }}" = "true" ]; then
-                  echo "Skipping invalidation for branch due to self-hosted"
+                if [ "${{ steps.variables.outputs.isUpdaterRun }}" = "true" ]; then
+                  echo "Skipping invalidation for branch due to updater run"
                 elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'string' ]; then
                   aws cloudfront create-invalidation --distribution-id ${{ inputs.aws-cloudfront-distribution-id }} --paths "/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}/*"
                 elif [ '${{ steps.variables.outputs.siteId_Type }}' = 'object' ]; then
@@ -555,7 +557,7 @@ runs:
     - name: Commit Files
       id: commit-files
       shell: bash
-      if: steps.variables.outputs.isSelfHosted == 'true' && github.event_name == 'push' && steps.variables.outputs.branch != 'production'
+      if: steps.variables.outputs.isUpdaterRun == 'true' && github.event_name == 'push' && steps.variables.outputs.branch != 'production'
       working-directory: repository
       run: |
         node ../scripts/utils/logStep.js --step 'Commit Files'
@@ -625,11 +627,11 @@ runs:
           aws s3 cp --region us-east-1 ./SnapAction*.json s3://datawarehouse-stage/team-metrics-import/
         fi;
 
-        if [ '${{ steps.variables.outputs.isSelfHosted }}' == 'true' ]; then
+        if [ '${{ steps.variables.outputs.isUpdaterRun }}' == 'true' ]; then
           # upload metric to s3 to be used in snapp-updater
           aws s3 cp --acl public-read ./${{ steps.variables.outputs.repository }}-conclusion-${{ github.event_name }}-${{ steps.variables.outputs.packageJSONVersion }}.json s3://${{ inputs.aws-s3-bucket-name }}/${{ steps.variables.outputs.siteId }}/${{ steps.variables.outputs.branch }}/
 
-          # Conclusion metric used in snapp-updater action status, Should only run on self-hosted
+          # Conclusion metric used in snapp-updater action status, Should only run on updater runs
           node scripts/metrics/updater.js \
             --runAttempt "${{ github.run_attempt }}" \
             --actor "${{ github.actor }}" \
