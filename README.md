@@ -42,6 +42,15 @@ jobs:
           skipInvalidation: false
 ```
 
+## Runners
+
+Repositories in the [snap-implementations](https://github.com/snap-implementations) organization choose a runner in `runs-on` based on the branch:
+
+- `ubuntu-latest` for regular pushes and pull requests
+- `snapp-updater` for updater runs - `updater/patch/*` and `updater/revert/*` branches, and the merges of those branches
+
+`snapp-updater` is a GitHub-hosted runner, not a self-hosted one. It has its own label only so that updater jobs have a separate queue from regular builds. The action detects these runs as `isUpdaterRun`.
+
 ## Inputs
 
 ### repository
